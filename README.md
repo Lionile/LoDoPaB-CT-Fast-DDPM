@@ -1,0 +1,32 @@
+# Fast-DDPM
+
+Adapted code from: [Fast-DDPM](https://github.com/mirthAI/Fast-DDPM)
+
+Which is th official PyTorch implementation of:
+
+[Fast-DDPM: Fast Denoising Diffusion Probabilistic Models for Medical Image-to-Image Generation](https://ieeexplore.ieee.org/abstract/document/10979336) (JBHI 2025)
+
+The code is adapted to work with the LoDoPab-CT dataset for imate reconstruction.
+
+## LODOPAB-CT commands
+
+- **`--timesteps x`** &mdash; sets the number of diffusion steps for training and inference (must match for both)
+
+* Run training:
+
+```
+python fast_ddpm_main.py --config lodopab_linear.yml --dataset LODOPAB --exp experiments --doc lodopab_fast_ddpm --scheduler_type uniform --timesteps 20
+```
+
+* Continue training:
+
+```
+python fast_ddpm_main.py --config lodopab_linear.yml --dataset LODOPAB --exp experiments --doc lodopab_fast_ddpm --scheduler_type uniform --timesteps 20 --resume_training
+```
+
+* Run inference:
+
+```
+python fast_ddpm_main.py --config lodopab_linear.yml --dataset LODOPAB --exp experiments --doc lodopab_fast_ddpm --scheduler_type uniform --timesteps 20 --sample --fid
+```
+

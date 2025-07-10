@@ -1,0 +1,56 @@
+data:
+    dataset: "LODOPAB"
+    train_dataroot: ""
+    sample_dataroot: ""
+    image_size: 128
+    channels: 1
+    logit_transform: false
+    uniform_dequantization: false
+    gaussian_dequantization: false
+    random_flip: true
+    rescaled: true
+    num_workers: 0
+
+model:
+    type: "sg"
+    in_channels: 2
+    out_ch: 1
+    ch: 128
+    ch_mult: [1, 2, 2, 4]
+    num_res_blocks: 2
+    attn_resolutions: [16]
+    dropout: 0.0
+    var_type: fixedsmall
+    ema_rate: 0.999
+    ema: True
+    resamp_with_conv: True
+
+diffusion:
+    beta_schedule: linear
+    beta_start: 0.0001
+    beta_end: 0.02
+    num_diffusion_timesteps: 1000   # number of diffusion steps (just for alpha and beta calculation, not the actual number of iterations)
+
+training:
+    batch_size: 4
+    n_epochs: 25             
+    n_iters: 50                 # not implemented
+    snapshot_freq: 100
+    validation_freq: 5000000000
+
+sampling:
+    batch_size: 2
+    ckpt_id: [55900]            # specify the saved checkpoint ID to sample from (not used in training)
+    last_only: True
+
+sampling_fid:
+    batch_size: 2
+    last_only: True
+
+optim:
+    weight_decay: 0.000
+    optimizer: "Adam"
+    lr: 0.00002
+    beta1: 0.9
+    amsgrad: false
+    eps: 0.00000001
