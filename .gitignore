@@ -3,3 +3,5 @@ experiments/
 exp/
 diffusion_visualization/
 unet_baseline_results/
+seminar_visualization_results/
+detailed_comparison_results/

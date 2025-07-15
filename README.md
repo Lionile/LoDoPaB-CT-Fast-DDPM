@@ -30,3 +30,12 @@ python fast_ddpm_main.py --config lodopab_linear.yml --dataset LODOPAB --exp exp
 python fast_ddpm_main.py --config lodopab_linear.yml --dataset LODOPAB --exp experiments --doc lodopab_fast_ddpm --scheduler_type uniform --timesteps 20 --sample --fid
 ```
 
+* Compare models
+```
+python compare_models.py --unet_path unet_baseline_results/unet_batch073400.pth --diffusion_path experiments/logs/lodopab_fast_ddpm/ckpt_63700.pth --num_samples 5 --start_idx 0 --use_unet_ema --diffusion_steps 20 --save_images --save_dir detailed_comparison_results
+```
+
+* Generating unconditional samples
+```
+python generate_unconditional_samples.py --diffusion_path experiments/logs/lodopab_fast_ddpm/ckpt_63700.pth --config_path configs/lodopab_linear.yml --image_size 128 --save_path unconditional_images/generated_sample.png
+```

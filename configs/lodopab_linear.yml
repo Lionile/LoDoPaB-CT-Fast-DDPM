@@ -16,9 +16,9 @@ model:
     in_channels: 2
     out_ch: 1
     ch: 128
-    ch_mult: [1, 2, 2, 4]
+    ch_mult: [1, 2, 2, 2, 4]
     num_res_blocks: 2
-    attn_resolutions: [16]
+    attn_resolutions: [32, 16]
     dropout: 0.0
     var_type: fixedsmall
     ema_rate: 0.999
@@ -35,12 +35,12 @@ training:
     batch_size: 4
     n_epochs: 25             
     n_iters: 50                 # not implemented
-    snapshot_freq: 100
+    snapshot_freq: 200
     validation_freq: 5000000000
 
 sampling:
-    batch_size: 2
-    ckpt_id: [55900]            # specify the saved checkpoint ID to sample from (not used in training)
+    batch_size: 1
+    ckpt_id: [63700]            # specify the saved checkpoint ID to sample from (not used in training)
     last_only: True
 
 sampling_fid:

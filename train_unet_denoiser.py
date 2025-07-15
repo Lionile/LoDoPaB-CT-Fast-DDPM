@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
+from torch.cuda.amp import GradScaler, autocast
 from torchvision.utils import save_image
 from datasets.LODOPAB import LODOPAB
 from tqdm import tqdm
@@ -359,11 +360,91 @@ def load_config(config_path):
         config_dict = yaml.safe_load(f)
     return SimpleConfig(config_dict)
 
-def main():
+def resume_from_checkpoint(model, optimizer, ema_helper=None, scaler=None, checkpoint_path=None, save_dir='unet_baseline_results', device='cuda'):
+    """
+    Resume training from a checkpoint
+    
+    Args:
+        model: The model to load state into
+        optimizer: The optimizer to load state into
+        ema_helper: EMA helper (optional)
+        scaler: GradScaler for mixed precision (optional)
+        checkpoint_path: Specific checkpoint path (optional, will auto-find latest if None)
+        save_dir: Directory containing checkpoints
+        device: Device to load checkpoint on
+        
+    Returns:
+        tuple: (start_epoch, start_batch, success)
+    """
+    start_epoch = 0
+    start_batch = 0
+    
+    if checkpoint_path is None:
+        # Auto-find latest checkpoint
+        if os.path.exists(save_dir):
+            checkpoint_files = [f for f in os.listdir(save_dir) if f.startswith('unet_batch') and f.endswith('.pth')]
+            if checkpoint_files:
+                checkpoint_files.sort(key=lambda x: int(x.split('batch')[1].split('.')[0]))
+                checkpoint_path = os.path.join(save_dir, checkpoint_files[-1])
+            else:
+                print("No checkpoints found. Starting training from scratch.")
+                return start_epoch, start_batch, False
+        else:
+            print("Save directory doesn't exist. Starting training from scratch.")
+            return start_epoch, start_batch, False
+    
+    if not os.path.exists(checkpoint_path):
+        print(f"Checkpoint not found: {checkpoint_path}")
+        return start_epoch, start_batch, False
+    
+    print(f"Loading checkpoint: {checkpoint_path}")
+    
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        
+        # Load model state
+        model.load_state_dict(checkpoint['model_state_dict'])
+        print("✓ Loaded model state")
+        
+        # Load optimizer state
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        print("✓ Loaded optimizer state")
+        
+        # Load EMA state if available
+        if ema_helper is not None and 'ema_state_dict' in checkpoint:
+            ema_helper.load_state_dict(checkpoint['ema_state_dict'])
+            print("✓ Loaded EMA state")
+        
+        # Load scaler state if available
+        if scaler is not None and 'scaler_state_dict' in checkpoint:
+            scaler.load_state_dict(checkpoint['scaler_state_dict'])
+            print("✓ Loaded mixed precision scaler state")
+        
+        # Get starting point
+        start_epoch = checkpoint.get('epoch', 0)
+        start_batch = checkpoint.get('batch', 0)
+        last_loss = checkpoint.get('loss', 0.0)
+        
+        print(f"Resuming from epoch {start_epoch}, batch {start_batch}")
+        print(f"Last recorded loss: {last_loss:.6f}")
+        
+        return start_epoch, start_batch, True
+        
+    except Exception as e:
+        print(f"ERROR: Failed to load checkpoint {checkpoint_path}")
+        print(f"Error: {str(e)}")
+        print("Starting training from scratch...")
+        return 0, 0, False
+
+def main(resume_checkpoint=None):
     # Load config from lodopab_linear.yml
     config = load_config('configs/lodopab_linear.yml')
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Mixed precision training settings
+    use_amp = getattr(config.training, 'use_amp', True)  # Enable by default if CUDA available
+    use_amp = use_amp and torch.cuda.is_available()  # Only use AMP with CUDA
     
     # Use config values
     batch_size = config.training.batch_size  # 4
@@ -395,6 +476,9 @@ def main():
         ema_helper = EMAHelper(mu=ema_rate)
         ema_helper.register(model)
     
+    # Initialize GradScaler for mixed precision training
+    scaler = GradScaler() if use_amp else None
+    
     # Use config optimizer settings
     if config.optim.optimizer == 'Adam':
         optimizer = optim.Adam(
@@ -409,6 +493,17 @@ def main():
     
     criterion = nn.MSELoss()
 
+    # Resume training from checkpoint if available
+    start_epoch, start_batch, resumed = resume_from_checkpoint(
+        model=model,
+        optimizer=optimizer, 
+        ema_helper=ema_helper,
+        scaler=scaler,
+        checkpoint_path=resume_checkpoint,  # Use specified checkpoint or auto-find
+        save_dir=save_dir,
+        device=device
+    )
+
     print(f"Training UNet with config settings:")
     print(f"  Image size: {image_size}")
     print(f"  Batch size: {batch_size}")
@@ -416,22 +511,61 @@ def main():
     print(f"  Channels: {ch}")
     print(f"  Channel multipliers: {ch_mult}")
     print(f"  EMA enabled: {use_ema}")
+    print(f"  Mixed precision: {use_amp}")
     if use_ema:
         print(f"  EMA rate: {ema_rate}")
 
-    batch_count = 0
-    for epoch in range(epochs):
+    batch_count = start_batch  # Resume from saved batch count
+    
+    # Calculate which epoch to start from based on batch count and dataset size
+    batches_per_epoch = len(dataloader)
+    calculated_start_epoch = start_batch // batches_per_epoch
+    
+    # Use the higher of the two epoch calculations for safety
+    actual_start_epoch = max(start_epoch, calculated_start_epoch)
+    
+    print(f"Starting/Resuming training:")
+    print(f"  Total batches per epoch: {batches_per_epoch}")
+    print(f"  Starting from epoch: {actual_start_epoch}")
+    print(f"  Starting from batch: {batch_count}")
+    
+    for epoch in range(actual_start_epoch, epochs):
         model.train()
         pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{epochs}")
         epoch_loss = 0
-        for batch in pbar:
+        
+        # Calculate how many batches to skip if resuming mid-epoch
+        batches_to_skip = 0
+        if epoch == actual_start_epoch and start_batch > 0:
+            batches_to_skip = start_batch % batches_per_epoch
+            if batches_to_skip > 0:
+                print(f"Skipping {batches_to_skip} batches to resume mid-epoch...")
+        
+        for batch_idx, batch in enumerate(pbar):
+            # Skip batches if resuming mid-epoch
+            if batch_idx < batches_to_skip:
+                continue
+                
             x_ld = batch['LD'].to(device)
             x_fd = batch['FD'].to(device)
             optimizer.zero_grad()
-            output = model(x_ld)
-            loss = criterion(output, x_fd)
-            loss.backward()
-            optimizer.step()
+            
+            if use_amp:
+                # Mixed precision forward pass
+                with autocast():
+                    output = model(x_ld)
+                    loss = criterion(output, x_fd)
+                
+                # Mixed precision backward pass
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                # Standard precision training
+                output = model(x_ld)
+                loss = criterion(output, x_fd)
+                loss.backward()
+                optimizer.step()
             
             # Update EMA if enabled
             if ema_helper is not None:
@@ -452,6 +586,8 @@ def main():
                 }
                 if ema_helper is not None:
                     checkpoint['ema_state_dict'] = ema_helper.state_dict()
+                if scaler is not None:
+                    checkpoint['scaler_state_dict'] = scaler.state_dict()
                 
                 torch.save(checkpoint, os.path.join(save_dir, f'unet_batch{batch_count:06d}.pth'))
                 # print(f"\nCheckpoint saved at batch {batch_count}")
@@ -474,7 +610,7 @@ def plot_images(imgs, titles=None, nrow=1, save_path=None):
     plt.show()
 
 # --- Inference function ---
-def inference(model_path, config_path='configs/lodopab_linear.yml', save_dir='unet_baseline_results', num_samples=4, save_images=False, use_ema=False):
+def inference(model_path, config_path='configs/lodopab_linear.yml', save_dir='unet_baseline_results', num_samples=4, save_images=False, use_ema=False, start_idx=0):
     import numpy as np
     from skimage.metrics import peak_signal_noise_ratio as compare_psnr, structural_similarity as compare_ssim
     
@@ -487,6 +623,7 @@ def inference(model_path, config_path='configs/lodopab_linear.yml', save_dir='un
     ch_mult = config.model.ch_mult
     
     dataset = LODOPAB(dataroot=config.data.sample_dataroot, img_size=image_size, split='calculate')
+    # Don't shuffle to maintain order for comparison
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
     
     model = UNet(config).to(device)
@@ -514,13 +651,22 @@ def inference(model_path, config_path='configs/lodopab_linear.yml', save_dir='un
     print(f"  Image size: {image_size}")
     print(f"  Model channels: {ch}")
     print(f"  Channel multipliers: {ch_mult}")
+    print(f"  Starting from index: {start_idx}")
+    print(f"  Number of samples: {num_samples}")
     
     psnr_list, ssim_list = [], []
+    processed_count = 0
+    
     with torch.no_grad():
         for idx, batch in enumerate(dataloader):
+            # Skip images before start_idx
+            if idx < start_idx:
+                continue
+                
             x_ld = batch['LD'].to(device)
             x_fd = batch['FD'].to(device)
             output = model(x_ld)
+            
             # Prepare images for plotting
             out_np = output.squeeze().cpu().numpy()
             gt_np = x_fd.squeeze().cpu().numpy()
@@ -528,25 +674,72 @@ def inference(model_path, config_path='configs/lodopab_linear.yml', save_dir='un
             out_np = np.clip((out_np+1)/2, 0, 1)
             gt_np = np.clip((gt_np+1)/2, 0, 1)
             in_np = np.clip((in_np+1)/2, 0, 1)
+            
+            # Use original dataset index for consistent naming
+            save_idx = idx
+            
             # Plot images
             plot_images([in_np, out_np, gt_np], titles=['Input', 'Output', 'Ground Truth'], nrow=1,
-                        save_path=os.path.join(save_dir, f'infer_{idx:04d}_plot.png') if save_images else None)
+                        save_path=os.path.join(save_dir, f'infer_{save_idx:04d}_plot.png') if save_images else None)
+            
             # Optionally save raw images
             if save_images:
-                save_image(torch.tensor(out_np).unsqueeze(0), os.path.join(save_dir, f'infer_{idx:04d}_out.png'))
-                save_image(torch.tensor(in_np).unsqueeze(0), os.path.join(save_dir, f'infer_{idx:04d}_in.png'))
-                save_image(torch.tensor(gt_np).unsqueeze(0), os.path.join(save_dir, f'infer_{idx:04d}_gt.png'))
+                save_image(torch.tensor(out_np).unsqueeze(0), os.path.join(save_dir, f'infer_{save_idx:04d}_out.png'))
+                save_image(torch.tensor(in_np).unsqueeze(0), os.path.join(save_dir, f'infer_{save_idx:04d}_in.png'))
+                save_image(torch.tensor(gt_np).unsqueeze(0), os.path.join(save_dir, f'infer_{save_idx:04d}_gt.png'))
+            
             # Compute PSNR/SSIM
             psnr = compare_psnr(gt_np, out_np, data_range=1)
             ssim = compare_ssim(gt_np, out_np, data_range=1)
             psnr_list.append(psnr)
             ssim_list.append(ssim)
-            if idx+1 >= num_samples:
+            
+            processed_count += 1
+            print(f"Processed image {save_idx}: PSNR={psnr:.4f}, SSIM={ssim:.4f}")
+            
+            # Stop after processing num_samples images
+            if processed_count >= num_samples:
                 break
-    print(f'Average PSNR: {np.mean(psnr_list):.4f}, Average SSIM: {np.mean(ssim_list):.4f}')
+    
+    if psnr_list:
+        print(f'Average PSNR: {np.mean(psnr_list):.4f}, Average SSIM: {np.mean(ssim_list):.4f}')
+        print(f'PSNR std: {np.std(psnr_list):.4f}, SSIM std: {np.std(ssim_list):.4f}')
+        print(f'Processed images {start_idx} to {start_idx + processed_count - 1}')
+    else:
+        print("No images processed. Check start_idx and num_samples parameters.")
 
 if __name__ == '__main__':
-    # run training
-    main()
-    # run inference
-    # inference('unet_baseline_results/unet_epoch025.pth', num_samples=4, save_images=False)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Train UNet Denoiser')
+    parser.add_argument('--resume', type=str, default=None, 
+                       help='Path to checkpoint to resume from (optional)')
+    parser.add_argument('--inference', action='store_true',
+                       help='Run inference instead of training')
+    parser.add_argument('--model_path', type=str, default='unet_baseline_results/unet_batch000100.pth',
+                       help='Model path for inference')
+    parser.add_argument('--num_samples', type=int, default=4,
+                       help='Number of samples for inference')
+    parser.add_argument('--save_images', action='store_true',
+                       help='Save individual images during inference')
+    parser.add_argument('--use_ema', action='store_true',
+                       help='Use EMA weights for inference')
+    parser.add_argument('--start_idx', type=int, default=0,
+                       help='Starting index for inference (default: 0)')
+    
+    args = parser.parse_args()
+    
+    if args.inference:
+        # Run inference
+        inference(
+            model_path=args.model_path,
+            num_samples=args.num_samples,
+            save_images=args.save_images,
+            use_ema=args.use_ema,
+            start_idx=args.start_idx
+        )
+    else:
+        # Run training (with optional resume)
+        if args.resume:
+            print(f"Will attempt to resume from: {args.resume}")
+        main(resume_checkpoint=args.resume)
