@@ -210,113 +210,269 @@ def plot_comparison(input_img, unet_output, diffusion_output, gt_img, save_path=
 
 
 def create_summary_plot(results_df, save_dir):
-    """Create summary plots comparing model performance"""
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    """Create comprehensive summary plots comparing model performance"""
+    # Create multiple figure layouts for comprehensive analysis
+    
+    # Figure 1: Box plots and distribution comparisons
+    fig1, axes1 = plt.subplots(2, 3, figsize=(18, 12))
     
     # PSNR comparison
-    axes[0, 0].boxplot([results_df['UNet_PSNR'], results_df['Diffusion_PSNR']], 
-                      labels=['UNet', 'Diffusion'])
-    axes[0, 0].set_title('PSNR Comparison')
-    axes[0, 0].set_ylabel('PSNR (dB)')
-    axes[0, 0].grid(True, alpha=0.3)
+    axes1[0, 0].boxplot([results_df['UNet_PSNR'], results_df['Diffusion_PSNR']], 
+                       labels=['UNet', 'Diffusion'])
+    axes1[0, 0].set_title('PSNR Comparison')
+    axes1[0, 0].set_ylabel('PSNR (dB)')
+    axes1[0, 0].grid(True, alpha=0.3)
     
     # SSIM comparison
-    axes[0, 1].boxplot([results_df['UNet_SSIM'], results_df['Diffusion_SSIM']], 
-                      labels=['UNet', 'Diffusion'])
-    axes[0, 1].set_title('SSIM Comparison')
-    axes[0, 1].set_ylabel('SSIM')
-    axes[0, 1].grid(True, alpha=0.3)
+    axes1[0, 1].boxplot([results_df['UNet_SSIM'], results_df['Diffusion_SSIM']], 
+                       labels=['UNet', 'Diffusion'])
+    axes1[0, 1].set_title('SSIM Comparison')
+    axes1[0, 1].set_ylabel('SSIM')
+    axes1[0, 1].grid(True, alpha=0.3)
     
-    # PSNR scatter plot
-    axes[1, 0].scatter(results_df['UNet_PSNR'], results_df['Diffusion_PSNR'], alpha=0.6)
-    max_psnr = max(results_df['UNet_PSNR'].max(), results_df['Diffusion_PSNR'].max())
-    min_psnr = min(results_df['UNet_PSNR'].min(), results_df['Diffusion_PSNR'].min())
-    axes[1, 0].plot([min_psnr, max_psnr], [min_psnr, max_psnr], 'r--', alpha=0.7)
-    axes[1, 0].set_xlabel('UNet PSNR (dB)')
-    axes[1, 0].set_ylabel('Diffusion PSNR (dB)')
-    axes[1, 0].set_title('PSNR: UNet vs Diffusion')
-    axes[1, 0].grid(True, alpha=0.3)
+    # LPIPS comparison
+    axes1[0, 2].boxplot([results_df['UNet_LPIPS'], results_df['Diffusion_LPIPS']], 
+                       labels=['UNet', 'Diffusion'])
+    axes1[0, 2].set_title('LPIPS Comparison (Lower is Better)')
+    axes1[0, 2].set_ylabel('LPIPS')
+    axes1[0, 2].grid(True, alpha=0.3)
     
-    # SSIM scatter plot
-    axes[1, 1].scatter(results_df['UNet_SSIM'], results_df['Diffusion_SSIM'], alpha=0.6)
-    max_ssim = max(results_df['UNet_SSIM'].max(), results_df['Diffusion_SSIM'].max())
-    min_ssim = min(results_df['UNet_SSIM'].min(), results_df['Diffusion_SSIM'].min())
-    axes[1, 1].plot([min_ssim, max_ssim], [min_ssim, max_ssim], 'r--', alpha=0.7)
-    axes[1, 1].set_xlabel('UNet SSIM')
-    axes[1, 1].set_ylabel('Diffusion SSIM')
-    axes[1, 1].set_title('SSIM: UNet vs Diffusion')
-    axes[1, 1].grid(True, alpha=0.3)
+    # MAE comparison
+    axes1[1, 0].boxplot([results_df['UNet_MAE'], results_df['Diffusion_MAE']], 
+                       labels=['UNet', 'Diffusion'])
+    axes1[1, 0].set_title('MAE Comparison (Lower is Better)')
+    axes1[1, 0].set_ylabel('MAE')
+    axes1[1, 0].grid(True, alpha=0.3)
+    
+    # RMSE comparison
+    axes1[1, 1].boxplot([results_df['UNet_RMSE'], results_df['Diffusion_RMSE']], 
+                       labels=['UNet', 'Diffusion'])
+    axes1[1, 1].set_title('RMSE Comparison (Lower is Better)')
+    axes1[1, 1].set_ylabel('RMSE')
+    axes1[1, 1].grid(True, alpha=0.3)
+    
+    # GMSD comparison
+    axes1[1, 2].boxplot([results_df['UNet_GMSD'], results_df['Diffusion_GMSD']], 
+                       labels=['UNet', 'Diffusion'])
+    axes1[1, 2].set_title('GMSD Comparison (Lower is Better)')
+    axes1[1, 2].set_ylabel('GMSD')
+    axes1[1, 2].grid(True, alpha=0.3)
     
     plt.tight_layout()
+    summary_path1 = os.path.join(save_dir, 'model_comparison_boxplots.png')
+    plt.savefig(summary_path1, dpi=150, bbox_inches='tight')
+    print(f"Saved box plot summary: {summary_path1}")
     
-    summary_path = os.path.join(save_dir, 'model_comparison_summary.png')
-    plt.savefig(summary_path, dpi=150, bbox_inches='tight')
-    print(f"Saved summary plot: {summary_path}")
-    plt.show()
+    # Figure 2: Scatter plots and correlations
+    fig2, axes2 = plt.subplots(2, 2, figsize=(12, 10))
+    
+    # PSNR scatter plot
+    axes2[0, 0].scatter(results_df['UNet_PSNR'], results_df['Diffusion_PSNR'], alpha=0.6)
+    max_psnr = max(results_df['UNet_PSNR'].max(), results_df['Diffusion_PSNR'].max())
+    min_psnr = min(results_df['UNet_PSNR'].min(), results_df['Diffusion_PSNR'].min())
+    axes2[0, 0].plot([min_psnr, max_psnr], [min_psnr, max_psnr], 'r--', alpha=0.7)
+    axes2[0, 0].set_xlabel('UNet PSNR (dB)')
+    axes2[0, 0].set_ylabel('Diffusion PSNR (dB)')
+    axes2[0, 0].set_title('PSNR: UNet vs Diffusion')
+    axes2[0, 0].grid(True, alpha=0.3)
+    
+    # SSIM scatter plot
+    axes2[0, 1].scatter(results_df['UNet_SSIM'], results_df['Diffusion_SSIM'], alpha=0.6)
+    max_ssim = max(results_df['UNet_SSIM'].max(), results_df['Diffusion_SSIM'].max())
+    min_ssim = min(results_df['UNet_SSIM'].min(), results_df['Diffusion_SSIM'].min())
+    axes2[0, 1].plot([min_ssim, max_ssim], [min_ssim, max_ssim], 'r--', alpha=0.7)
+    axes2[0, 1].set_xlabel('UNet SSIM')
+    axes2[0, 1].set_ylabel('Diffusion SSIM')
+    axes2[0, 1].set_title('SSIM: UNet vs Diffusion')
+    axes2[0, 1].grid(True, alpha=0.3)
+    
+    # Histogram of differences - PSNR
+    psnr_diff = results_df['Diffusion_PSNR'] - results_df['UNet_PSNR']
+    axes2[1, 0].hist(psnr_diff, bins=30, alpha=0.7, edgecolor='black')
+    axes2[1, 0].axvline(psnr_diff.mean(), color='red', linestyle='--', 
+                       label=f'Mean: {psnr_diff.mean():.3f}')
+    axes2[1, 0].set_xlabel('PSNR Difference (Diffusion - UNet)')
+    axes2[1, 0].set_ylabel('Frequency')
+    axes2[1, 0].set_title('Distribution of PSNR Differences')
+    axes2[1, 0].legend()
+    axes2[1, 0].grid(True, alpha=0.3)
+    
+    # Histogram of differences - SSIM
+    ssim_diff = results_df['Diffusion_SSIM'] - results_df['UNet_SSIM']
+    axes2[1, 1].hist(ssim_diff, bins=30, alpha=0.7, edgecolor='black')
+    axes2[1, 1].axvline(ssim_diff.mean(), color='red', linestyle='--', 
+                       label=f'Mean: {ssim_diff.mean():.4f}')
+    axes2[1, 1].set_xlabel('SSIM Difference (Diffusion - UNet)')
+    axes2[1, 1].set_ylabel('Frequency')
+    axes2[1, 1].set_title('Distribution of SSIM Differences')
+    axes2[1, 1].legend()
+    axes2[1, 1].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    summary_path2 = os.path.join(save_dir, 'model_comparison_scatter.png')
+    plt.savefig(summary_path2, dpi=150, bbox_inches='tight')
+    print(f"Saved scatter plot summary: {summary_path2}")
+    
+    # Figure 3: Performance distributions
+    fig3, axes3 = plt.subplots(2, 2, figsize=(12, 10))
+    
+    # PSNR histograms
+    axes3[0, 0].hist(results_df['UNet_PSNR'], bins=30, alpha=0.5, label='UNet', color='blue')
+    axes3[0, 0].hist(results_df['Diffusion_PSNR'], bins=30, alpha=0.5, label='Diffusion', color='red')
+    axes3[0, 0].set_xlabel('PSNR (dB)')
+    axes3[0, 0].set_ylabel('Frequency')
+    axes3[0, 0].set_title('PSNR Distribution')
+    axes3[0, 0].legend()
+    axes3[0, 0].grid(True, alpha=0.3)
+    
+    # SSIM histograms
+    axes3[0, 1].hist(results_df['UNet_SSIM'], bins=30, alpha=0.5, label='UNet', color='blue')
+    axes3[0, 1].hist(results_df['Diffusion_SSIM'], bins=30, alpha=0.5, label='Diffusion', color='red')
+    axes3[0, 1].set_xlabel('SSIM')
+    axes3[0, 1].set_ylabel('Frequency')
+    axes3[0, 1].set_title('SSIM Distribution')
+    axes3[0, 1].legend()
+    axes3[0, 1].grid(True, alpha=0.3)
+    
+    # LPIPS histograms
+    axes3[1, 0].hist(results_df['UNet_LPIPS'], bins=30, alpha=0.5, label='UNet', color='blue')
+    axes3[1, 0].hist(results_df['Diffusion_LPIPS'], bins=30, alpha=0.5, label='Diffusion', color='red')
+    axes3[1, 0].set_xlabel('LPIPS')
+    axes3[1, 0].set_ylabel('Frequency')
+    axes3[1, 0].set_title('LPIPS Distribution')
+    axes3[1, 0].legend()
+    axes3[1, 0].grid(True, alpha=0.3)
+    
+    # MAE histograms
+    axes3[1, 1].hist(results_df['UNet_MAE'], bins=30, alpha=0.5, label='UNet', color='blue')
+    axes3[1, 1].hist(results_df['Diffusion_MAE'], bins=30, alpha=0.5, label='Diffusion', color='red')
+    axes3[1, 1].set_xlabel('MAE')
+    axes3[1, 1].set_ylabel('Frequency')
+    axes3[1, 1].set_title('MAE Distribution')
+    axes3[1, 1].legend()
+    axes3[1, 1].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    summary_path3 = os.path.join(save_dir, 'model_comparison_distributions.png')
+    plt.savefig(summary_path3, dpi=150, bbox_inches='tight')
+    print(f"Saved distribution plots: {summary_path3}")
+    
+    # Don't show plots in batch processing mode
+    # plt.show()
 
 
 def print_statistics(results_df):
     """Print detailed statistics comparing both models"""
-    print("\n" + "="*60)
-    print("MODEL COMPARISON STATISTICS")
-    print("="*60)
+    print("\n" + "="*80)
+    print("COMPREHENSIVE MODEL COMPARISON STATISTICS")
+    print("="*80)
+    print(f"Total samples analyzed: {len(results_df)}")
     
-    # Calculate statistics
-    unet_psnr_mean = results_df['UNet_PSNR'].mean()
-    unet_psnr_std = results_df['UNet_PSNR'].std()
-    diffusion_psnr_mean = results_df['Diffusion_PSNR'].mean()
-    diffusion_psnr_std = results_df['Diffusion_PSNR'].std()
+    # Calculate statistics for all metrics
+    metrics = ['PSNR', 'SSIM', 'LPIPS', 'MAE', 'RMSE', 'GMSD']
     
-    unet_ssim_mean = results_df['UNet_SSIM'].mean()
-    unet_ssim_std = results_df['UNet_SSIM'].std()
-    diffusion_ssim_mean = results_df['Diffusion_SSIM'].mean()
-    diffusion_ssim_std = results_df['Diffusion_SSIM'].std()
+    print(f"\n{'Metric':<10} {'UNet Mean':<12} {'UNet Std':<12} {'Diff Mean':<12} {'Diff Std':<12} {'Improvement':<12}")
+    print("-" * 80)
     
-    print(f"\nPSNR Results:")
-    print(f"  UNet:      {unet_psnr_mean:.4f} ± {unet_psnr_std:.4f} dB")
-    print(f"  Diffusion: {diffusion_psnr_mean:.4f} ± {diffusion_psnr_std:.4f} dB")
-    print(f"  Difference: {diffusion_psnr_mean - unet_psnr_mean:.4f} dB")
-    
-    print(f"\nSSIM Results:")
-    print(f"  UNet:      {unet_ssim_mean:.4f} ± {unet_ssim_std:.4f}")
-    print(f"  Diffusion: {diffusion_ssim_mean:.4f} ± {diffusion_ssim_std:.4f}")
-    print(f"  Difference: {diffusion_ssim_mean - unet_ssim_mean:.4f}")
-    
-    # Statistical significance tests (if scipy is available)
-    try:
-        from scipy.stats import ttest_rel
-        psnr_tstat, psnr_pval = ttest_rel(results_df['Diffusion_PSNR'], results_df['UNet_PSNR'])
-        ssim_tstat, ssim_pval = ttest_rel(results_df['Diffusion_SSIM'], results_df['UNet_SSIM'])
+    for metric in metrics:
+        unet_col = f'UNet_{metric}'
+        diff_col = f'Diffusion_{metric}'
         
-        print(f"\nStatistical Significance (paired t-test):")
-        print(f"  PSNR: t={psnr_tstat:.4f}, p={psnr_pval:.6f}")
-        print(f"  SSIM: t={ssim_tstat:.4f}, p={ssim_pval:.6f}")
+        unet_mean = results_df[unet_col].mean()
+        unet_std = results_df[unet_col].std()
+        diff_mean = results_df[diff_col].mean()
+        diff_std = results_df[diff_col].std()
+        
+        # For LPIPS, MAE, RMSE, GMSD - lower is better
+        if metric in ['LPIPS', 'MAE', 'RMSE', 'GMSD']:
+            improvement = ((unet_mean - diff_mean) / unet_mean) * 100
+            better_symbol = "↓" if diff_mean < unet_mean else "↑"
+        else:  # For PSNR, SSIM - higher is better
+            improvement = ((diff_mean - unet_mean) / unet_mean) * 100
+            better_symbol = "↑" if diff_mean > unet_mean else "↓"
+        
+        print(f"{metric:<10} {unet_mean:<12.4f} {unet_std:<12.4f} {diff_mean:<12.4f} {diff_std:<12.4f} {improvement:>+6.2f}% {better_symbol}")
+    
+    # Statistical significance tests
+    try:
+        from scipy.stats import ttest_rel, wilcoxon
+        print(f"\n{'Statistical Significance Tests:'}")
+        print(f"{'Metric':<10} {'t-test p-val':<15} {'Wilcoxon p-val':<15} {'Significant?'}")
+        print("-" * 55)
         
         alpha = 0.05
-        if psnr_pval < alpha:
-            print(f"  PSNR difference is statistically significant (p < {alpha})")
-        else:
-            print(f"  PSNR difference is not statistically significant (p >= {alpha})")
+        for metric in metrics:
+            unet_col = f'UNet_{metric}'
+            diff_col = f'Diffusion_{metric}'
             
-        if ssim_pval < alpha:
-            print(f"  SSIM difference is statistically significant (p < {alpha})")
-        else:
-            print(f"  SSIM difference is not statistically significant (p >= {alpha})")
+            # Paired t-test
+            tstat, ttest_pval = ttest_rel(results_df[diff_col], results_df[unet_col])
+            
+            # Wilcoxon signed-rank test (non-parametric)
+            try:
+                wstat, wilcoxon_pval = wilcoxon(results_df[diff_col], results_df[unet_col])
+            except:
+                wilcoxon_pval = float('nan')
+            
+            significant = "Yes*" if min(ttest_pval, wilcoxon_pval) < alpha else "No"
+            print(f"{metric:<10} {ttest_pval:<15.6f} {wilcoxon_pval:<15.6f} {significant}")
+        
+        print("\n* Significant at α = 0.05 level")
             
     except ImportError:
         print("\nNote: Install scipy for statistical significance testing")
     
-    # Best/worst cases
-    best_unet_idx = results_df['UNet_PSNR'].idxmax()
-    best_diffusion_idx = results_df['Diffusion_PSNR'].idxmax()
-    worst_unet_idx = results_df['UNet_PSNR'].idxmin()
-    worst_diffusion_idx = results_df['Diffusion_PSNR'].idxmin()
+    # Best/worst case analysis
+    print(f"\n{'Best/Worst Case Analysis:'}")
+    print("-" * 50)
     
-    print(f"\nBest/Worst Cases:")
-    print(f"  Best UNet PSNR:      {results_df.loc[best_unet_idx, 'UNet_PSNR']:.4f} dB (Image {best_unet_idx})")
-    print(f"  Best Diffusion PSNR: {results_df.loc[best_diffusion_idx, 'Diffusion_PSNR']:.4f} dB (Image {best_diffusion_idx})")
-    print(f"  Worst UNet PSNR:     {results_df.loc[worst_unet_idx, 'UNet_PSNR']:.4f} dB (Image {worst_unet_idx})")
-    print(f"  Worst Diffusion PSNR:{results_df.loc[worst_diffusion_idx, 'Diffusion_PSNR']:.4f} dB (Image {worst_diffusion_idx})")
+    for metric in ['PSNR', 'SSIM']:
+        unet_col = f'UNet_{metric}'
+        diff_col = f'Diffusion_{metric}'
+        
+        best_unet_idx = results_df[unet_col].idxmax()
+        best_diffusion_idx = results_df[diff_col].idxmax()
+        worst_unet_idx = results_df[unet_col].idxmin()
+        worst_diffusion_idx = results_df[diff_col].idxmin()
+        
+        print(f"\n{metric} Analysis:")
+        print(f"  Best UNet:      {results_df.loc[best_unet_idx, unet_col]:.4f} (Image {best_unet_idx})")
+        print(f"  Best Diffusion: {results_df.loc[best_diffusion_idx, diff_col]:.4f} (Image {best_diffusion_idx})")
+        print(f"  Worst UNet:     {results_df.loc[worst_unet_idx, unet_col]:.4f} (Image {worst_unet_idx})")
+        print(f"  Worst Diffusion:{results_df.loc[worst_diffusion_idx, diff_col]:.4f} (Image {worst_diffusion_idx})")
+    
+    # Percentile analysis
+    print(f"\n{'Percentile Analysis (PSNR):'}")
+    print("-" * 40)
+    percentiles = [25, 50, 75, 90, 95]
+    for p in percentiles:
+        unet_p = np.percentile(results_df['UNet_PSNR'], p)
+        diff_p = np.percentile(results_df['Diffusion_PSNR'], p)
+        print(f"  {p}th percentile: UNet {unet_p:.3f} dB, Diffusion {diff_p:.3f} dB")
+    
+    # Win rate analysis
+    print(f"\n{'Win Rate Analysis:'}")
+    print("-" * 30)
+    for metric in ['PSNR', 'SSIM']:
+        unet_col = f'UNet_{metric}'
+        diff_col = f'Diffusion_{metric}'
+        
+        diffusion_wins = (results_df[diff_col] > results_df[unet_col]).sum()
+        win_rate = (diffusion_wins / len(results_df)) * 100
+        
+        print(f"  {metric}: Diffusion wins {diffusion_wins}/{len(results_df)} cases ({win_rate:.1f}%)")
+    
+    # Large improvement cases
+    print(f"\n{'Cases with Large Improvements (PSNR > 2dB):'}")
+    large_improvements = results_df[results_df['PSNR_Diff'] > 2.0]
+    if len(large_improvements) > 0:
+        print(f"  Found {len(large_improvements)} cases with >2dB improvement")
+        for idx, row in large_improvements.iterrows():
+            print(f"    Image {idx}: +{row['PSNR_Diff']:.2f} dB improvement")
+    else:
+        print("  No cases with >2dB improvement found")
+    
+    print("\n" + "="*80)
 
 
 def main():
@@ -327,8 +483,10 @@ def main():
                        help='Path to Diffusion checkpoint')
     parser.add_argument('--config_path', type=str, default='configs/lodopab_linear.yml',
                        help='Path to config file')
-    parser.add_argument('--num_samples', type=int, default=10,
-                       help='Number of samples to compare')
+    parser.add_argument('--num_samples', type=int, default=100,
+                       help='Number of samples to analyze for statistics')
+    parser.add_argument('--num_save_images', type=int, default=10,
+                       help='Number of comparison images to save')
     parser.add_argument('--start_idx', type=int, default=0,
                        help='Starting index for comparison')
     parser.add_argument('--save_dir', type=str, default='model_comparison_results',
@@ -368,11 +526,13 @@ def main():
     print(f"\nStarting comparison:")
     print(f"  UNet checkpoint: {args.unet_path}")
     print(f"  Diffusion checkpoint: {args.diffusion_path}")
-    print(f"  Samples: {args.num_samples} (starting from index {args.start_idx})")
+    print(f"  Total samples for statistics: {args.num_samples} (starting from index {args.start_idx})")
+    print(f"  Images to save: {args.num_save_images if args.save_images else 0}")
     print(f"  Diffusion steps: {args.diffusion_steps or 'default'}")
     
     # Store results
     results = []
+    images_saved = 0
     
     # Run comparison
     processed_count = 0
@@ -426,12 +586,11 @@ def main():
             }
             results.append(result)
             
-            # Create comparison plot
-            save_path = None
-            if args.save_images:
+            # Save comparison images only for the first few samples
+            if args.save_images and images_saved < args.num_save_images:
                 save_path = os.path.join(args.save_dir, f'comparison_{idx:04d}.png')
-            
-            plot_comparison(input_np, unet_np, diffusion_np, gt_np, save_path, idx)
+                plot_comparison(input_np, unet_np, diffusion_np, gt_np, save_path, idx)
+                images_saved += 1
             
             processed_count += 1
             if processed_count >= args.num_samples:
@@ -445,13 +604,15 @@ def main():
     results_df.to_csv(csv_path, index=False)
     print(f"\nSaved detailed results to: {csv_path}")
     
-    # Print statistics
+    # Print comprehensive statistics
     print_statistics(results_df)
     
-    # Create summary plots
+    # Create comprehensive summary plots
     create_summary_plot(results_df, args.save_dir)
     
     print(f"\nComparison complete! Results saved in: {args.save_dir}")
+    print(f"Processed {len(results_df)} images for statistics")
+    print(f"Saved {images_saved} comparison images")
 
 
 if __name__ == '__main__':

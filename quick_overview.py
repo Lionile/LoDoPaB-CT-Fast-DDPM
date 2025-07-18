@@ -6,7 +6,7 @@ from dival.datasets.lodopab_dataset import LoDoPaBDataset
 from dival.datasets.fbp_dataset import FBPDataset
 import time
 
-lodopab = LoDoPaBDataset(impl='astra_cuda')
+lodopab = LoDoPaBDataset(impl='astra_cpu')
 fbp_lodopab = FBPDataset(lodopab, lodopab.ray_trafo)
 
 train_dataset = lodopab.create_torch_dataset(part='train')
