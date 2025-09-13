@@ -2,11 +2,11 @@
 
 Adapted code from: [Fast-DDPM](https://github.com/mirthAI/Fast-DDPM)
 
-Which is th official PyTorch implementation of:
+Which is the official PyTorch implementation of:
 
 [Fast-DDPM: Fast Denoising Diffusion Probabilistic Models for Medical Image-to-Image Generation](https://ieeexplore.ieee.org/abstract/document/10979336) (JBHI 2025)
 
-The code is adapted to work with the LoDoPab-CT dataset for imate reconstruction.
+The code is adapted to work with the LoDoPab-CT dataset for image reconstruction.
 
 ## LODOPAB-CT commands
 
